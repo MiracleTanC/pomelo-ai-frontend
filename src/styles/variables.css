@@ -1,0 +1,84 @@
+:root {
+  /* 主色调 - 与 Element Plus 默认蓝一致 */
+  --pomelo-primary: #409eff;
+  --pomelo-primary-light: #ecf5ff;
+  --pomelo-primary-dark: #337ecc;
+
+  /* 布局 */
+  --pomelo-sidebar-bg: #ffffff;
+  --pomelo-sidebar-border: #eef0f3;
+  --pomelo-sidebar-text: #4e5969;
+  --pomelo-sidebar-text-hover: #409eff;
+  --pomelo-sidebar-active-bg: var(--pomelo-primary-light);
+  --pomelo-sidebar-active-text: var(--pomelo-primary);
+  --pomelo-sidebar-logo-bg: linear-gradient(135deg, #409eff 0%, #5bb6ff 100%);
+
+  --pomelo-content-bg: #f5f7fa;
+  --pomelo-card-bg: #ffffff;
+  --pomelo-card-border: #ebeef5;
+  --pomelo-card-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+
+  /* 文字 */
+  --pomelo-text-primary: #303133;
+  --pomelo-text-regular: #606266;
+  --pomelo-text-secondary: #909399;
+  --pomelo-text-placeholder: #c0c4cc;
+
+  /* 对话 */
+  --pomelo-msg-user-bg: var(--pomelo-primary);
+  --pomelo-msg-user-text: #ffffff;
+  --pomelo-msg-ai-bg: #ffffff;
+  --pomelo-msg-ai-border: var(--pomelo-card-border);
+
+  /* 通用 */
+  --pomelo-radius: 8px;
+  --pomelo-radius-sm: 4px;
+  --pomelo-transition: all 0.25s ease;
+}
+
+/* 全局基础样式 */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, "PingFang SC", "Microsoft YaHei",
+    "Noto Sans SC", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background: var(--pomelo-content-bg);
+  color: var(--pomelo-text-primary);
+}
+
+/* Element Plus 微调 */
+.el-card {
+  border-radius: var(--pomelo-radius) !important;
+  border-color: var(--pomelo-card-border) !important;
+  box-shadow: var(--pomelo-card-shadow) !important;
+}
+
+.el-table {
+  border-radius: var(--pomelo-radius);
+}
+
+.el-menu {
+  border-right: none !important;
+}
+
+/* 滚动条美化 */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #dcdfe6;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #c0c4cc;
+}
