@@ -42,6 +42,22 @@
           </div>
         </div>
 
+        <!-- 流程说明 -->
+        <div class="flow-guide">
+          <span class="flow-label">处理流程：</span>
+          <span class="flow-step">① 上传</span>
+          <el-icon class="flow-arrow"><Right /></el-icon>
+          <span class="flow-step">② 解析</span>
+          <el-icon class="flow-arrow"><Right /></el-icon>
+          <span class="flow-step">③ 切片</span>
+          <el-icon class="flow-arrow"><Right /></el-icon>
+          <span class="flow-step">④ 向量化</span>
+          <el-icon class="flow-arrow"><Right /></el-icon>
+          <span class="flow-step flow-step-final">⑤ 可检索</span>
+          <el-divider direction="vertical" class="flow-divider" />
+          <span class="flow-hint">「加工」一键执行 ②③④，鼠标悬停各操作查看详细说明</span>
+        </div>
+
         <el-table :data="docs" v-loading="docsLoading" stripe @selection-change="onSelectionChange">
           <el-table-column type="selection" width="40" />
           <el-table-column prop="name" label="文件名" min-width="200" show-overflow-tooltip>
@@ -67,16 +83,31 @@
           <el-table-column label="上传时间" width="160">
             <template #default="{ row }">{{ formatTime(row.createdAt) }}</template>
           </el-table-column>
-          <el-table-column label="操作" width="360" align="center">
+          <el-table-column label="操作" width="340" align="center">
             <template #default="{ row }">
-              <el-button link size="small" @click="handleAction(row, 'ingest')">入库</el-button>
-              <el-button link size="small" @click="handleAction(row, 'parse')">解析</el-button>
-              <el-button link size="small" @click="handleAction(row, 'vectorize')">向量化</el-button>
-              <el-button link size="small" @click="handleAction(row, 'reparse')">重解析</el-button>
-              <el-button link size="small" :type="row.enabled ? 'warning' : 'success'" @click="toggleEnabled(row)">
-                {{ row.enabled ? '停用' : '启用' }}
-              </el-button>
-              <el-button link type="danger" size="small" @click="handleDelete(row)">删除</el-button>
+              <el-tooltip content="解析→切片→向量化一步到位，上传后一键完成" placement="top">
+                <el-button link size="small" type="primary" @click="handleAction(row, 'ingest')">加工</el-button>
+              </el-tooltip>
+              <el-tooltip content="仅提取纯文本，暂不切片和向量化" placement="top">
+                <el-button link size="small" @click="handleAction(row, 'parse')">解析</el-button>
+              </el-tooltip>
+              <el-tooltip content="仅将已解析的文本切分为片段" placement="top">
+                <el-button link size="small" @click="handleAction(row, 'chunk')">切片</el-button>
+              </el-tooltip>
+              <el-tooltip content="仅将已切片的内容嵌入向量库" placement="top">
+                <el-button link size="small" @click="handleAction(row, 'vectorize')">向量化</el-button>
+              </el-tooltip>
+              <el-tooltip content="清除旧结果，重新走完整加工流水线" placement="top">
+                <el-button link size="small" @click="handleAction(row, 'reparse')">重加工</el-button>
+              </el-tooltip>
+              <el-tooltip :content="row.enabled ? '停用后不参与检索，向量保留' : '恢复检索'" placement="top">
+                <el-button link size="small" :type="row.enabled ? 'warning' : 'success'" @click="toggleEnabled(row)">
+                  {{ row.enabled ? '停用' : '启用' }}
+                </el-button>
+              </el-tooltip>
+              <el-tooltip content="同步删除向量、切片、元数据和文件" placement="top">
+                <el-button link type="danger" size="small" @click="handleDelete(row)">删除</el-button>
+              </el-tooltip>
             </template>
           </el-table-column>
         </el-table>
@@ -262,7 +293,7 @@ async function handleUpload() {
 }
 
 async function handleAction(row, action) {
-  const labels = { ingest: '完整入库', parse: '解析', vectorize: '向量化', reparse: '重新解析' }
+  const labels = { ingest: '加工', parse: '解析', vectorize: '向量化', reparse: '重加工' }
   await ElMessageBox.confirm(`确认对「${row.name}」执行${labels[action]}？`, labels[action])
   const fn = docApi[action]
   if (!fn) { ElMessage.error(`操作 ${labels[action]} 未定义`); return }
@@ -380,4 +411,25 @@ function formatTime(t) { if (!t) return ''; return new Date(t).toLocaleString('z
 .stats-row { margin-bottom: 16px; }
 .filter-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
 .meta-tip { color: var(--pomelo-text-secondary); font-size: 12px; }
+.flow-guide {
+  display: flex; align-items: center; gap: 6px;
+  padding: 10px 16px; margin-bottom: 12px;
+  background: var(--pomelo-primary-light, #ecf5ff);
+  border: 1px solid #d4e8fc;
+  border-radius: var(--pomelo-radius, 8px);
+  font-size: 13px;
+}
+.flow-label { font-weight: 600; color: var(--pomelo-primary, #409eff); white-space: nowrap; }
+.flow-step {
+  display: inline-flex; align-items: center;
+  padding: 2px 10px; border-radius: 12px;
+  background: #fff; color: var(--pomelo-text-regular, #606266);
+  border: 1px solid #e4e7ed; white-space: nowrap;
+}
+.flow-step-final {
+  background: var(--pomelo-primary, #409eff); color: #fff; border-color: var(--pomelo-primary, #409eff);
+}
+.flow-arrow { color: #c0c4cc; }
+.flow-divider { margin: 0 4px; }
+.flow-hint { color: var(--pomelo-text-secondary, #909399); white-space: nowrap; }
 </style>

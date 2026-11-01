@@ -32,9 +32,24 @@
         </el-descriptions>
       </el-tab-pane>
 
-      <!-- 原文预览 -->
+      <!-- 原文预览（Markdown 渲染 + 目录导航） -->
       <el-tab-pane label="原文预览" name="content">
-        <div v-if="doc?.parsedContent" class="parsed-content">{{ doc.parsedContent }}</div>
+        <div v-if="doc?.parsedContent" class="md-viewer">
+          <!-- 目录导航 -->
+          <div class="md-toc" v-if="toc.length">
+            <div class="md-toc-title">目录</div>
+            <a
+              v-for="item in toc"
+              :key="item.id"
+              class="md-toc-item"
+              :class="{ active: activeHeading === item.id }"
+              :style="{ paddingLeft: (item.level - 1) * 16 + 12 + 'px' }"
+              @click="scrollToHeading(item.id)"
+            >{{ item.text }}</a>
+          </div>
+          <!-- Markdown 渲染 -->
+          <div class="md-body" ref="mdBody" v-html="renderedMarkdown"></div>
+        </div>
         <el-empty v-else description="文档尚未解析，无原文内容" />
       </el-tab-pane>
 
@@ -83,11 +98,12 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
 import { docApi } from '../api/doc'
 import http from '../api/http'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { marked } from 'marked'
 
 const route = useRoute()
 const docId = route.params.id
@@ -97,6 +113,74 @@ const chunkLoading = ref(false)
 const activeTab = ref('info')
 const editingId = ref('')
 const editingContent = ref('')
+const mdBody = ref(null)
+const activeHeading = ref('')
+
+// ---- Markdown 渲染 + 目录 ----
+const renderedMarkdown = computed(() => {
+  if (!doc.value?.parsedContent) return ''
+  // 配置 marked：添加 heading id
+  const renderer = new marked.Renderer()
+  const origHeading = renderer.heading.bind(renderer)
+  renderer.heading = function({ text, depth }) {
+    const slug = slugify(text)
+    return `<h${depth} id="${slug}">${text}</h${depth}>\n`
+  }
+  marked.use({ renderer })
+  return marked.parse(doc.value.parsedContent)
+})
+
+// 从原文提取标题构建目录
+const toc = computed(() => {
+  if (!doc.value?.parsedContent) return []
+  const lines = doc.value.parsedContent.split('\n')
+  const items = []
+  for (const line of lines) {
+    const m = line.match(/^(#{1,6})\s+(.+)$/)
+    if (m) {
+      const level = m[1].length
+      const text = m[2].replace(/[*_`~\[\]]/g, '').trim()
+      items.push({ level, text, id: slugify(text) })
+    }
+  }
+  return items
+})
+
+function slugify(text) {
+  return text.replace(/[^\w\u4e00-\u9fa5]+/g, '-').replace(/^-|-$/g, '').toLowerCase()
+}
+
+function scrollToHeading(id) {
+  activeHeading.value = id
+  const el = document.getElementById(id)
+  if (el && mdBody.value) {
+    mdBody.value.scrollTop = el.offsetTop - mdBody.value.offsetTop - 8
+  }
+}
+
+// 切到原文预览 tab 时，监听滚动高亮目录
+watch(activeTab, (tab) => {
+  if (tab === 'content') {
+    nextTick(() => {
+      if (mdBody.value) {
+        mdBody.value.addEventListener('scroll', updateActiveHeading)
+      }
+    })
+  }
+})
+
+function updateActiveHeading() {
+  if (!mdBody.value || !toc.value.length) return
+  const scrollTop = mdBody.value.scrollTop
+  for (let i = toc.value.length - 1; i >= 0; i--) {
+    const el = document.getElementById(toc.value[i].id)
+    if (el && el.offsetTop - mdBody.value.offsetTop <= scrollTop + 20) {
+      activeHeading.value = toc.value[i].id
+      return
+    }
+  }
+  activeHeading.value = toc.value[0]?.id || ''
+}
 
 const hasEdited = computed(() => chunks.value.some(c => c.status === 'EDITED'))
 
@@ -181,17 +265,80 @@ function formatTime(t) {
 .page-header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
 .page-header h2 { margin: 0; flex: 1; color: var(--pomelo-text-primary); }
 .header-actions { display: flex; gap: 8px; }
-.parsed-content {
-  white-space: pre-wrap;
-  background: var(--pomelo-content-bg);
-  padding: 16px;
-  border-radius: var(--pomelo-radius);
-  max-height: 600px;
+
+/* Markdown 预览 */
+.md-viewer {
+  display: flex;
+  gap: 16px;
+  height: calc(100vh - 200px);
+  min-height: 400px;
+}
+.md-toc {
+  width: 260px;
+  flex-shrink: 0;
+  background: var(--pomelo-content-bg, #fafafa);
+  border: 1px solid var(--pomelo-card-border, #ebeef5);
+  border-radius: var(--pomelo-radius, 8px);
   overflow-y: auto;
+  padding: 12px 0;
+  position: sticky;
+  top: 0;
+}
+.md-toc-title {
+  font-weight: 600;
+  font-size: 14px;
+  padding: 0 12px 8px;
+  border-bottom: 1px solid var(--pomelo-card-border, #ebeef5);
+  margin-bottom: 8px;
+  color: var(--pomelo-text-primary);
+}
+.md-toc-item {
+  display: block;
+  padding: 4px 12px;
+  font-size: 13px;
+  color: var(--pomelo-text-regular, #606266);
+  cursor: pointer;
+  border-left: 2px solid transparent;
+  transition: all 0.2s;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.md-toc-item:hover {
+  color: var(--pomelo-primary, #409eff);
+  background: var(--pomelo-primary-light, #ecf5ff);
+}
+.md-toc-item.active {
+  color: var(--pomelo-primary, #409eff);
+  border-left-color: var(--pomelo-primary, #409eff);
+  font-weight: 500;
+}
+.md-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px 32px;
+  background: #fff;
+  border: 1px solid var(--pomelo-card-border, #ebeef5);
+  border-radius: var(--pomelo-radius, 8px);
   line-height: 1.8;
   font-size: 14px;
-  border: 1px solid var(--pomelo-card-border);
+  scroll-behavior: smooth;
 }
+.md-body :deep(h1) { font-size: 22px; margin: 24px 0 12px; padding-bottom: 8px; border-bottom: 1px solid #eee; }
+.md-body :deep(h2) { font-size: 18px; margin: 20px 0 10px; }
+.md-body :deep(h3) { font-size: 16px; margin: 16px 0 8px; }
+.md-body :deep(h4) { font-size: 14px; margin: 14px 0 6px; }
+.md-body :deep(p) { margin: 8px 0; }
+.md-body :deep(table) { border-collapse: collapse; width: 100%; margin: 12px 0; font-size: 13px; }
+.md-body :deep(th), .md-body :deep(td) { border: 1px solid #ddd; padding: 6px 12px; text-align: left; }
+.md-body :deep(th) { background: #f5f7fa; font-weight: 600; }
+.md-body :deep(code) { background: #f5f7fa; padding: 2px 6px; border-radius: 4px; font-family: monospace; font-size: 13px; }
+.md-body :deep(pre) { background: #f5f7fa; padding: 12px; border-radius: 6px; overflow-x: auto; }
+.md-body :deep(blockquote) { border-left: 4px solid #dfe6ec; padding-left: 16px; margin: 12px 0; color: #909399; }
+.md-body :deep(ul), .md-body :deep(ol) { padding-left: 24px; margin: 8px 0; }
+.md-body :deep(img) { max-width: 100%; max-height: 600px; height: auto; width: auto; border-radius: 4px; border: 1px solid #e8e8e8; margin: 8px 0; }
+
+/* 切片内容截断 */
 .chunk-text {
   white-space: pre-wrap;
   max-height: 60px;
